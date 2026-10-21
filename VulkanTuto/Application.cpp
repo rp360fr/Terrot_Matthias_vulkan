@@ -1,5 +1,11 @@
 #include "Header/Application.h"
 
+Application::Application()
+{
+
+    
+}
+
 void Application::Init()
 {
     InitWidows();
@@ -11,9 +17,9 @@ void Application::Run()
     while (!glfwWindowShouldClose(window)) {
 
         glfwPollEvents();
-        renderer.get()->drawFrame();
+        pipeline.drawFrame(device,swapChain);
     }
-    renderer.get()->device.waitIdle();
+    device.GetDevice()->waitIdle();
 }
 
 void Application::Nuke()
@@ -37,19 +43,12 @@ void Application::InitWidows()
 
 void Application::InitVulkan()
 {
-    renderer = std::make_unique<Renderer>();
-    renderer.get()->SetWindow(window);
-    renderer.get()->CreateInstance();
-    renderer.get()->SetupDebugCallback();
-    renderer.get()->createSurface();
-    renderer.get()->pickPhysicalDevice();
-    renderer.get()->CreateLogicalDevice();
-    renderer.get()->createSwapChain();
-    renderer.get()->createImageViews();
-    renderer.get()->createGraphicsPipeline();
-    renderer.get()->createCommandPool();
-    renderer.get()->createCommandBuffer();
-    renderer.get()->createSyncObjects();
+    renderer.InstanceInit(instance);
+    renderer.DeviceInit(device,instance,*window);
+    renderer.swapChainInit(swapChain,device,*window);
+    renderer.PipelineInit(pipeline,swapChain,device);
+
+    
 }
 
 void Application::NukeWidows()
