@@ -1,7 +1,7 @@
-﻿#include "Header/Instance.h"
+#include "Header/Instance.h"
 #define NOMINMAX
 #include "Header/Renderer.h"
-#include <GLFW/glfw3.h>
+
 #include "Header/Debug.h"
 
 #include <iostream>

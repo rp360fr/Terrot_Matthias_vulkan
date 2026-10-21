@@ -22,8 +22,8 @@ void SwapChain::createSwapChain(Device& device,GLFWwindow& window_)
                                                .presentMode = chooseSwapPresentMods(availablePresentModes),
                                                .clipped = true };
 
-    swapChain = vk::raii::SwapchainKHR(*device.GetDevice(), swapChainCreateInfo);
-    swapChainImages = swapChain.getImages();
+    swapChain_ = vk::raii::SwapchainKHR(*device.GetDevice(), swapChainCreateInfo);
+    swapChainImages = swapChain_.getImages();
 }
 
 void SwapChain::createImageViews(Device& device)

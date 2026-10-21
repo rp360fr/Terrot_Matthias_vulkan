@@ -17,7 +17,7 @@ void Pipeline::recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain)
 	
 	vk::ClearValue clearColor = vk::ClearColorValue(0.0f,0.0f,0.0f,1.0f);
 	vk::RenderingAttachmentInfo attachmentInfo = {
-		.imageView = swapChainImageViews[imageIndex],
+		.imageView = swapchain.swapChainImageViews[imageIndex],
 		.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
 		.loadOp =  vk::AttachmentLoadOp::eClear,
 		.storeOp = vk::AttachmentStoreOp::eStore,
@@ -211,7 +211,7 @@ void Pipeline::drawFrame(Device& device,SwapChain& swapchain)
 		throw std::runtime_error("failed to wait for fence!");
 	}
 	device.GetDevice()->resetFences(*drawFence);
-	auto [result, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphore, nullptr);
+	auto [result, imageIndex] = swapchain.GetSwapChain()->acquireNextImage(UINT64_MAX, *presentCompleteSemaphore, nullptr);
 	recordCommandBuffer(imageIndex,swapchain);
 	vk::PipelineStageFlags waitDestinationStageMask( vk::PipelineStageFlagBits::eColorAttachmentOutput );
 	const vk::SubmitInfo   submitInfo{.waitSemaphoreCount   = 1,
@@ -226,7 +226,7 @@ void Pipeline::drawFrame(Device& device,SwapChain& swapchain)
 		.waitSemaphoreCount = 1,
 		.pWaitSemaphores    = &*renderFinishedSemaphore,
 		.swapchainCount     = 1,
-		.pSwapchains        = &*swapChain,
+		.pSwapchains        = &**swapchain.GetSwapChain(),
 		.pImageIndices      = &imageIndex};
 	result = device.GetQueue()->presentKHR(presentInfoKHR);
 }

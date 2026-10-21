@@ -27,10 +27,18 @@ public:
     {
         return swapChainImages;
     }
-    
-private:
+    vk::raii::SwapchainKHR* GetSwapChain()
+    {
+        return &swapChain_;
+    }
+    std::vector<vk::raii::ImageView>* GetSwapChainImageView()
+    {
+        return &swapChainImageViews;
+    }
     std::vector<vk::raii::ImageView> swapChainImageViews;
-    vk::raii::SwapchainKHR swapChain = nullptr;
+private:
+    
+    vk::raii::SwapchainKHR swapChain_ = nullptr;
     std::vector<vk::Image> swapChainImages;
     vk::SurfaceFormatKHR   swapChainSurfaceFormat;
     vk::Extent2D           swapChainExtent;

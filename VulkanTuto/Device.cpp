@@ -44,6 +44,7 @@ void Device::CreateLogicalDevice(Instance& instance)
         {.dynamicRendering = true},           
         {.extendedDynamicState = true}        
         };
+    auto requiredExtensions = instance.GetrequiredDeviceExtension();
 
     // create a Device
     float                     queuePriority = 0.5f;
@@ -52,7 +53,7 @@ void Device::CreateLogicalDevice(Instance& instance)
                                                .queueCreateInfoCount = 1,
                                                .pQueueCreateInfos = &deviceQueueCreateInfo,
                                                .enabledExtensionCount = static_cast<uint32_t>(instance.GetrequiredDeviceExtension().size()),
-                                               .ppEnabledExtensionNames = instance.GetrequiredDeviceExtension().data() };
+                                               .ppEnabledExtensionNames = requiredExtensions.data() };
 
     device = vk::raii::Device(physicalDevice, deviceCreateInfo);
     queue = vk::raii::Queue(device, queueIndex, 0);
