@@ -42,11 +42,12 @@ Application();
 	void Nuke();
 	
 private:
-	
+	void cleanup();
 	void InitWidows();
 	void InitVulkan();
 	void NukeWidows();
 	void NukeVulkan();
+	static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
 	
 	

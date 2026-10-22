@@ -1,4 +1,5 @@
-﻿#include "Header/Pipeline.h"
+﻿#define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
+#include "Header/Pipeline.h"
 
 #include "Header/Device.h"
 #include "Header/SwapChain.h"
@@ -6,6 +7,7 @@
 
 void Pipeline::recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain)
 {
+	auto &commandBuffer = commandBuffers[frameIndex];
 	commandBuffer.begin({});
 	transition_image_layout(    imageIndex,
 	vk::ImageLayout::eUndefined,
@@ -13,7 +15,7 @@ void Pipeline::recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain)
 	{},                                                        
 	vk::AccessFlagBits2::eColorAttachmentWrite,                
 	vk::PipelineStageFlagBits2::eColorAttachmentOutput,        
-	vk::PipelineStageFlagBits2::eColorAttachmentOutput,swapchain );
+	vk::PipelineStageFlagBits2::eColorAttachmentOutput,swapchain);
 	
 	vk::ClearValue clearColor = vk::ClearColorValue(0.0f,0.0f,0.0f,1.0f);
 	vk::RenderingAttachmentInfo attachmentInfo = {
@@ -44,7 +46,8 @@ void Pipeline::recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain)
 		{},                                                     // dstAccessMask
 		vk::PipelineStageFlagBits2::eColorAttachmentOutput,     // srcStage
 		vk::PipelineStageFlagBits2::eBottomOfPipe,
-		swapchain// dstStage
+		swapchain
+	
 	);
 	commandBuffer.end();
 	
@@ -75,7 +78,7 @@ void Pipeline::transition_image_layout(uint32_t imageIndex, vk::ImageLayout old_
 			.imageMemoryBarrierCount = 1,
 			.pImageMemoryBarriers = &barrier
 	};
-	commandBuffer.pipelineBarrier2(dependency_info);
+	commandBuffers[frameIndex].pipelineBarrier2(dependency_info);
 }
 
 
@@ -185,48 +188,84 @@ void Pipeline::createCommandPool(Device& device,SwapChain& swapchain)
 	
 }
 
-void Pipeline::createCommandBuffer(Device& device)
+void Pipeline::createCommandBuffers(Device& device)
 {
-	vk::CommandBufferAllocateInfo allocInfo {
-		.commandPool = commandPool,
-		.level =  vk::CommandBufferLevel::ePrimary,
-		.commandBufferCount = 1
-	};
-	commandBuffer = std::move(vk::raii::CommandBuffers(*device.GetDevice(),allocInfo).front());
+	vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)};
+	commandBuffers = vk::raii::CommandBuffers( *device.GetDevice(), allocInfo );
 }
 
-void Pipeline::createSyncObjects(Device& device)
+void Pipeline::createSyncObjects(Device& device,SwapChain& swapchain)
 {
 	
-	presentCompleteSemaphore = vk::raii::Semaphore(*device.GetDevice(), vk::SemaphoreCreateInfo());
-	renderFinishedSemaphore  = vk::raii::Semaphore(*device.GetDevice(), vk::SemaphoreCreateInfo());
-	drawFence                = vk::raii::Fence(*device.GetDevice(), {.flags = vk::FenceCreateFlagBits::eSignaled});
+	assert(presentCompleteSemaphores.empty() && renderFinishedSemaphores.empty() && inFlightFences.empty());
+
+	for (size_t i = 0; i < swapchain.GetSwapCHainImage().size(); i++)
+	{
+		renderFinishedSemaphores.emplace_back(*device.GetDevice(), vk::SemaphoreCreateInfo());
+	}
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		presentCompleteSemaphores.emplace_back(*device.GetDevice(), vk::SemaphoreCreateInfo());
+		inFlightFences.emplace_back(*device.GetDevice(), vk::FenceCreateInfo{.flags = vk::FenceCreateFlagBits::eSignaled});
+	}
 }
 
-void Pipeline::drawFrame(Device& device,SwapChain& swapchain)
+void Pipeline::drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window)
 {
-	auto fenceResult = device.GetDevice()->waitForFences(*drawFence, vk::True, UINT64_MAX);
+	auto fenceResult = device.GetDevice()->waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
 	if (fenceResult != vk::Result::eSuccess)
 	{
 		throw std::runtime_error("failed to wait for fence!");
 	}
-	device.GetDevice()->resetFences(*drawFence);
-	auto [result, imageIndex] = swapchain.GetSwapChain()->acquireNextImage(UINT64_MAX, *presentCompleteSemaphore, nullptr);
+
+	auto [result, imageIndex] = swapchain.GetSwapChain()->acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
+
+	if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || framebufferResized)
+	{
+		framebufferResized = false;
+		swapchain.recreateSwapChai(device,window);
+		return;
+	}
+	if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
+	{
+		assert(result == vk::Result::eTimeout || result == vk::Result::eNotReady);
+		throw std::runtime_error("failed to acquire swap chain image!");
+	}
+
+	// Only reset the fence if we are submitting work
+	device.GetDevice()->resetFences(*inFlightFences[frameIndex]);
+	commandBuffers[frameIndex].reset();
 	recordCommandBuffer(imageIndex,swapchain);
-	vk::PipelineStageFlags waitDestinationStageMask( vk::PipelineStageFlagBits::eColorAttachmentOutput );
+
+	vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
 	const vk::SubmitInfo   submitInfo{.waitSemaphoreCount   = 1,
-									  .pWaitSemaphores      = &*presentCompleteSemaphore,
+									  .pWaitSemaphores      = &*presentCompleteSemaphores[frameIndex],
 									  .pWaitDstStageMask    = &waitDestinationStageMask,
 									  .commandBufferCount   = 1,
-									  .pCommandBuffers      = &*commandBuffer,
+									  .pCommandBuffers      = &*commandBuffers[frameIndex],
 									  .signalSemaphoreCount = 1,
-									  .pSignalSemaphores    = &*renderFinishedSemaphore};
-	device.GetQueue()->submit(submitInfo, *drawFence);
-	const vk::PresentInfoKHR presentInfoKHR{
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores    = &*renderFinishedSemaphore,
-		.swapchainCount     = 1,
-		.pSwapchains        = &**swapchain.GetSwapChain(),
-		.pImageIndices      = &imageIndex};
+									  .pSignalSemaphores    = &*renderFinishedSemaphores[imageIndex]};
+	device.GetQueue()->submit(submitInfo, *inFlightFences[frameIndex]);
+	
+	const vk::PresentInfoKHR presentInfoKHR{.waitSemaphoreCount = 1,
+												.pWaitSemaphores    = &*renderFinishedSemaphores[imageIndex],
+												.swapchainCount     = 1,
+												.pSwapchains        = &**swapchain.GetSwapChain(),
+												.pImageIndices      = &imageIndex};
 	result = device.GetQueue()->presentKHR(presentInfoKHR);
+	// Due to VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS being defined, eErrorOutOfDateKHR can be checked as a result
+	// here and does not need to be caught by an exception.
+	if ((result == vk::Result::eSuboptimalKHR) || (result == vk::Result::eErrorOutOfDateKHR) || framebufferResized)
+	{
+		framebufferResized = false;
+		swapchain.recreateSwapChai(device,window);
+	}
+	else
+	{
+		// There are no other success codes than eSuccess; on any error code, presentKHR already threw an exception.
+		assert(result == vk::Result::eSuccess);
+	}
+	frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+	frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 }

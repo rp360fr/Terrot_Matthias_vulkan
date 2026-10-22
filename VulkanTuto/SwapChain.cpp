@@ -1,5 +1,28 @@
 ﻿#include "Header/SwapChain.h"
 
+void SwapChain::cleanupSwapChain()
+{
+    swapChainImageViews.clear();
+    swapChain_ = nullptr;
+}
+
+void SwapChain::recreateSwapChai(Device& device,GLFWwindow& window)
+{
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(&window, &width, &height);
+    while ((width == 0 || height == 0) && !glfwWindowShouldClose(&window)) {
+        glfwGetFramebufferSize(&window, &width, &height);
+        glfwWaitEvents();
+    }
+    if (glfwWindowShouldClose(&window)) {
+        return;
+    }
+    device.GetDevice()->waitIdle();
+    cleanupSwapChain();
+    createSwapChain(device,window);
+    createImageViews(device);
+}
+
 void SwapChain::createSwapChain(Device& device,GLFWwindow& window_)
 {
     vk::SurfaceCapabilitiesKHR surfaceCapabilities = device.GetphysiacalDevice()->getSurfaceCapabilitiesKHR(*device.GetSurface());
@@ -10,8 +33,11 @@ void SwapChain::createSwapChain(Device& device,GLFWwindow& window_)
     std::vector<vk::SurfaceFormatKHR> availableFormats = device.GetphysiacalDevice()->getSurfaceFormatsKHR(*device.GetSurface());
     swapChainSurfaceFormat = chooseSwapSurfaceFormat(availableFormats);
     vk::SwapchainCreateInfoKHR swapChainCreateInfo{ .surface = *device.GetSurface(),
+        
                                                .minImageCount = minImageCount,
+                                                
                                                .imageFormat = swapChainSurfaceFormat.format,
+        
                                                .imageColorSpace = swapChainSurfaceFormat.colorSpace,
                                                .imageExtent = swapChainExtent,
                                                .imageArrayLayers = 1,
@@ -20,7 +46,8 @@ void SwapChain::createSwapChain(Device& device,GLFWwindow& window_)
                                                .preTransform = surfaceCapabilities.currentTransform,
                                                .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
                                                .presentMode = chooseSwapPresentMods(availablePresentModes),
-                                               .clipped = true };
+                                               .clipped = true,
+    .oldSwapchain = *swapChain_,};
 
     swapChain_ = vk::raii::SwapchainKHR(*device.GetDevice(), swapChainCreateInfo);
     swapChainImages = swapChain_.getImages();

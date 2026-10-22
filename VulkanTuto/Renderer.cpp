@@ -29,6 +29,6 @@ void Renderer::PipelineInit( Pipeline& pipeline,SwapChain& swapchain,Device& dev
 {
     pipeline.createGraphicsPipeline(device,swapchain);
     pipeline.createCommandPool(device,swapchain);
-    pipeline.createCommandBuffer(device);
-    pipeline.createSyncObjects(device);
+    pipeline.createCommandBuffers(device);
+    pipeline.createSyncObjects(device,swapchain);
 }

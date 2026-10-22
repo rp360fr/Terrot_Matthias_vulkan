@@ -13,6 +13,8 @@ class SwapChain
 public:
     SwapChain(){}
     ~SwapChain(){}
+    void cleanupSwapChain();
+    void recreateSwapChai(Device& device,GLFWwindow& window);
     void createSwapChain(Device& device,GLFWwindow& window_);
     void createImageViews(Device& device);	
     vk::SurfaceFormatKHR GetSurfaceFormatKHR()
