@@ -5,7 +5,7 @@
 #include "Header/SwapChain.h"
 
 
-void Pipeline::recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain)
+void Pipeline::recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain,VertexBuffer& vertexbuffer)
 {
 	auto &commandBuffer = commandBuffers[frameIndex];
 	commandBuffer.begin({});
@@ -33,9 +33,11 @@ void Pipeline::recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain)
 	};
 	commandBuffer.beginRendering(renderingInfo);
 	commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
+	commandBuffer.bindVertexBuffers(0,**vertexbuffer.GetvertexBuffer(),{0});
+	commandBuffer.bindIndexBuffer(*vertexbuffer.GetindixBuffer(), 0, vk::IndexTypeValue<decltype(vertexbuffer.indices)::value_type>::value);
 	commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapchain.GetswapChainExtent().width), static_cast<float>(swapchain.GetswapChainExtent().height), 0.0f, 1.0f));
 	commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapchain.GetswapChainExtent()));
-	commandBuffer.draw(3, 1, 0, 0);
+	commandBuffer.drawIndexed(static_cast<uint32_t>(vertexbuffer.indices.size()), 1, 0, 0, 0);
 	commandBuffer.endRendering();
 	// After rendering, transition the swapchain image to vk::ImageLayout::ePresentSrcKHR
 	transition_image_layout(
@@ -109,7 +111,7 @@ std::vector<char> Pipeline::readFile(const std::string& filename)
 	return buffer;
 }
 
-void Pipeline::createGraphicsPipeline(Device& device,SwapChain& swapchain,VertexBuffer vertexbuffer)
+void Pipeline::createGraphicsPipeline(Device& device,SwapChain& swapchain,VertexBuffer& vertexbuffer)
 {
 	vk::raii::ShaderModule shaderModule = createShaderModule(readFile("shader/slang.spv"),device);
 	vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
@@ -117,8 +119,8 @@ void Pipeline::createGraphicsPipeline(Device& device,SwapChain& swapchain,Vertex
 	vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 	
 	
-	auto                                     bindingDescription    = vertexbuffer.getBindingDescription();
-	auto                                     attributeDescriptions = vertexbuffer.getAttributeDescriptions();
+	auto                                     bindingDescription    = vertexbuffer.vertex.getBindingDescription();
+	auto                                     attributeDescriptions = vertexbuffer.vertex.getAttributeDescriptions();
 	vk::PipelineVertexInputStateCreateInfo   vertexInputInfo{.vertexBindingDescriptionCount   = 1,
 															 .pVertexBindingDescriptions      = &bindingDescription,
 															 .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
@@ -203,7 +205,7 @@ void Pipeline::createSyncObjects(Device& device,SwapChain& swapchain)
 	}
 }
 
-void Pipeline::drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window)
+void Pipeline::drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window,VertexBuffer& vertexBuffer)
 {
 	auto fenceResult = device.GetDevice()->waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
 	if (fenceResult != vk::Result::eSuccess)
@@ -228,7 +230,7 @@ void Pipeline::drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window)
 	// Only reset the fence if we are submitting work
 	device.GetDevice()->resetFences(*inFlightFences[frameIndex]);
 	commandBuffers[frameIndex].reset();
-	recordCommandBuffer(imageIndex,swapchain);
+	recordCommandBuffer(imageIndex,swapchain,vertexBuffer);
 
 	vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
 	const vk::SubmitInfo   submitInfo{.waitSemaphoreCount   = 1,

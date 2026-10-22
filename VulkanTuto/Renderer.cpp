@@ -25,10 +25,14 @@ void Renderer::swapChainInit( SwapChain& swapChain,Device& device,GLFWwindow& wi
     swapChain.createImageViews(device);
 }
 
-void Renderer::PipelineInit( Pipeline& pipeline,SwapChain& swapchain,Device& device,VertexBuffer vertex_buffer)
+void Renderer::PipelineInit( Pipeline& pipeline,SwapChain& swapchain,Device& device,VertexBuffer& vertex_buffer)
 {
     pipeline.createGraphicsPipeline(device,swapchain,vertex_buffer);
     pipeline.createCommandPool(device,swapchain);
+    vertex_buffer.CreateVertexBuffer(device,pipeline);
+    vertex_buffer.CreateIndexBuffer(device,pipeline);
     pipeline.createCommandBuffers(device);
     pipeline.createSyncObjects(device,swapchain);
 }
+
+

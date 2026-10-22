@@ -9,15 +9,16 @@
 #include <fstream>
 class Device;
 class SwapChain;
+class VertexBuffer;
 class Pipeline
 {
 public:
     
-    void createGraphicsPipeline(Device& device,SwapChain& swapchain,VertexBuffer vertexbuffer);
+    void createGraphicsPipeline(Device& device,SwapChain& swapchain,VertexBuffer& vertexbuffer);
     void createCommandPool(Device& device,SwapChain& swapchain);
     void createCommandBuffers(Device& device);
     void createSyncObjects(Device& device,SwapChain& swapchain);
-    void drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window);
+    void drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window,VertexBuffer& vertexBuffer);
     static std::vector<char> readFile(const std::string& filename);
 	bool* GetFramebufferResized()
 	{
@@ -25,7 +26,8 @@ public:
 	}
 	
 	
-	
+	vk::raii::CommandPool* GetcommandPoll(){
+		return &commandPool;}
 	
 private:
     
@@ -36,11 +38,7 @@ private:
 	
     vk::raii::Queue graphicsQueue = nullptr;
   
-	const std::vector<vertex> vertives = {
-		{{0.0f,-0.5f},{1.0f,0.0f,0.0f}},
-		{{0.5f,0.5f},{0.0f,1.0f,0.0f}},
-		{{-0.5f,0.5f},{0.0f,0.0f,1.0f}},
-	};
+	
 	uint32_t frameIndex = 0;
 	
     vk::raii::CommandPool commandPool = nullptr;
@@ -51,7 +49,7 @@ private:
     vk::raii::PipelineLayout pipelineLayout = nullptr;
     vk::raii::Pipeline       graphicsPipeline = nullptr;
     GLFWwindow* window = nullptr;
-    void recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain);
+    void recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain,VertexBuffer& vertexbuffer);
     void transition_image_layout( uint32_t                imageIndex,
         vk::ImageLayout         old_layout,
         vk::ImageLayout         new_layout,

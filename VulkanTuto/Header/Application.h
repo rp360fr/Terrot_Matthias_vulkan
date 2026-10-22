@@ -15,7 +15,7 @@ class Instance;
 class Device;
 class SwapChain;
 class Pipeline;
-class VertexBuffer
+class VertexBuffer;
 
 class Application
 {
@@ -26,7 +26,10 @@ class Application
 	
 	
 public:
-Application();
+Application()
+{
+	window = nullptr;
+}
 	int width = 800;
 	int height = 600;
 

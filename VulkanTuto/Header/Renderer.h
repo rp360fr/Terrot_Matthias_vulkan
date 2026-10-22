@@ -20,8 +20,8 @@ public:
 	void InstanceInit( Instance& instance);
 	void DeviceInit( Device& device,Instance& instance,GLFWwindow& window);
 	void swapChainInit( SwapChain& swapChain,Device& device,GLFWwindow& window_);
-	void PipelineInit( Pipeline& pipeline,SwapChain& swapchain,Device& device,VertexBuffer vertex_buffer);
-	
+	void PipelineInit( Pipeline& pipeline,SwapChain& swapchain,Device& device,VertexBuffer& vertex_buffer);
+	void VertexInit();
 	
 	
 	

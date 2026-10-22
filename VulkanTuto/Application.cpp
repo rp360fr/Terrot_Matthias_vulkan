@@ -1,10 +1,5 @@
 #include "Header/Application.h"
-//#define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
-Application::Application()
-{
-
-    
-}
+#define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
 
 void Application::Init()
 {
@@ -17,7 +12,7 @@ void Application::Run()
     while (!glfwWindowShouldClose(window)) {
 
         glfwPollEvents();
-        pipeline.drawFrame(device,swapChain,*window);
+        pipeline.drawFrame(device,swapChain,*window,vertexBuffer);
     }
 }
 

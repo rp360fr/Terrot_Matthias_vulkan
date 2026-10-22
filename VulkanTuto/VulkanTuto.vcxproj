@@ -117,12 +117,12 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)/include;C:\VulkanSDK\1.4.357.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)/include;C:\VulkanSDK\1.4.363.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)/libs\GLFW;C:\VulkanSDK\1.4.357.0\Lib;%(AdditionalLibraryDirectories);/NODEFAULTLIB:library</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)/libs\GLFW;C:\VulkanSDK\1.4.363.0\Lib;%(AdditionalLibraryDirectories);/NODEFAULTLIB:library</AdditionalLibraryDirectories>
       <AdditionalDependencies>glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
