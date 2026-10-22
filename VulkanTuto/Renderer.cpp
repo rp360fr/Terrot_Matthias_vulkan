@@ -25,9 +25,9 @@ void Renderer::swapChainInit( SwapChain& swapChain,Device& device,GLFWwindow& wi
     swapChain.createImageViews(device);
 }
 
-void Renderer::PipelineInit( Pipeline& pipeline,SwapChain& swapchain,Device& device)
+void Renderer::PipelineInit( Pipeline& pipeline,SwapChain& swapchain,Device& device,VertexBuffer vertex_buffer)
 {
-    pipeline.createGraphicsPipeline(device,swapchain);
+    pipeline.createGraphicsPipeline(device,swapchain,vertex_buffer);
     pipeline.createCommandPool(device,swapchain);
     pipeline.createCommandBuffers(device);
     pipeline.createSyncObjects(device,swapchain);

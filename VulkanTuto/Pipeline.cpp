@@ -1,4 +1,4 @@
-﻿#define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
+﻿//#define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
 #include "Header/Pipeline.h"
 
 #include "Header/Device.h"
@@ -82,8 +82,6 @@ void Pipeline::transition_image_layout(uint32_t imageIndex, vk::ImageLayout old_
 }
 
 
-
-
 [[nodiscard]] vk::raii::ShaderModule Pipeline::createShaderModule(const std::vector<char>& code,Device& device) const
 {
 	vk::ShaderModuleCreateInfo createInfo
@@ -94,17 +92,6 @@ void Pipeline::transition_image_layout(uint32_t imageIndex, vk::ImageLayout old_
 	vk::raii::ShaderModule shaderModule{*device.GetDevice(),createInfo};
 	return shaderModule;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 std::vector<char> Pipeline::readFile(const std::string& filename)
@@ -122,7 +109,7 @@ std::vector<char> Pipeline::readFile(const std::string& filename)
 	return buffer;
 }
 
-void Pipeline::createGraphicsPipeline(Device& device,SwapChain& swapchain)
+void Pipeline::createGraphicsPipeline(Device& device,SwapChain& swapchain,VertexBuffer vertexbuffer)
 {
 	vk::raii::ShaderModule shaderModule = createShaderModule(readFile("shader/slang.spv"),device);
 	vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
@@ -130,7 +117,12 @@ void Pipeline::createGraphicsPipeline(Device& device,SwapChain& swapchain)
 	vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 	
 	
-	vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
+	auto                                     bindingDescription    = vertexbuffer.getBindingDescription();
+	auto                                     attributeDescriptions = vertexbuffer.getAttributeDescriptions();
+	vk::PipelineVertexInputStateCreateInfo   vertexInputInfo{.vertexBindingDescriptionCount   = 1,
+															 .pVertexBindingDescriptions      = &bindingDescription,
+															 .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
+															 .pVertexAttributeDescriptions    = attributeDescriptions.data()};
 	vk::PipelineInputAssemblyStateCreateInfo inputAssembly{.topology = vk::PrimitiveTopology::eTriangleList};
 	vk::PipelineViewportStateCreateInfo viewportState{.viewportCount = 1, .scissorCount = 1};
 	

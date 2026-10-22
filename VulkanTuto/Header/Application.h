@@ -8,12 +8,14 @@
 #include "Device.h"
 #include "SwapChain.h"
 #include "Pipeline.h"
+#include "VertexBuffer.h"
 #include <memory>
 class Renderer;
 class Instance;
 class Device;
 class SwapChain;
 class Pipeline;
+class VertexBuffer
 
 class Application
 {
@@ -35,6 +37,7 @@ Application();
 	Device device;
 	SwapChain swapChain;
 	Pipeline pipeline;
+	VertexBuffer vertexBuffer;
 	
 	
 	void Init();

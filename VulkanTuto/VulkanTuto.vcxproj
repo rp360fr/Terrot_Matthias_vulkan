@@ -159,6 +159,7 @@
     </ClCompile>
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SwapChain.cpp" />
+    <ClCompile Include="VertexBuffer.cpp" />
     <ClCompile Include="VulkanTuto.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -169,6 +170,7 @@
     <ClInclude Include="Header\Pipeline.h" />
     <ClInclude Include="Header\Renderer.h" />
     <ClInclude Include="Header\SwapChain.h" />
+    <ClInclude Include="Header\VertexBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="shader\CMakeLists.txt" />

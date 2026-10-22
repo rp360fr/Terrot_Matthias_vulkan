@@ -2,7 +2,7 @@
 #define GLFW_INCLUDE_VULKAN
 
 #include <GLFW/glfw3.h> 
-
+#include "VertexBuffer.h"
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 
 #include <vulkan/vulkan_raii.hpp>
@@ -13,7 +13,7 @@ class Pipeline
 {
 public:
     
-    void createGraphicsPipeline(Device& device,SwapChain& swapchain);
+    void createGraphicsPipeline(Device& device,SwapChain& swapchain,VertexBuffer vertexbuffer);
     void createCommandPool(Device& device,SwapChain& swapchain);
     void createCommandBuffers(Device& device);
     void createSyncObjects(Device& device,SwapChain& swapchain);
@@ -23,6 +23,10 @@ public:
 	{
 		return &framebufferResized;
 	}
+	
+	
+	
+	
 private:
     
     std::vector<vk::raii::CommandBuffer> commandBuffers;
@@ -32,7 +36,11 @@ private:
 	
     vk::raii::Queue graphicsQueue = nullptr;
   
-	
+	const std::vector<vertex> vertives = {
+		{{0.0f,-0.5f},{1.0f,0.0f,0.0f}},
+		{{0.5f,0.5f},{0.0f,1.0f,0.0f}},
+		{{-0.5f,0.5f},{0.0f,0.0f,1.0f}},
+	};
 	uint32_t frameIndex = 0;
 	
     vk::raii::CommandPool commandPool = nullptr;
