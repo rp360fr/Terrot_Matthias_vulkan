@@ -3,31 +3,34 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h> 
 #include "Device.h"
+#include "TextureMap.h"
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 
 #include <vulkan/vulkan_raii.hpp>
 #include <fstream>
 class Device;
+class TextureMap;
+class VertexBuffer;
 class SwapChain
 {
 public:
     SwapChain(){}
     ~SwapChain(){}
     void cleanupSwapChain();
-    void recreateSwapChai(Device& device,GLFWwindow& window);
+    void recreateSwapChai(Device& device,GLFWwindow& window,TextureMap& texture,VertexBuffer& vertex,SwapChain& swapchain);
     void createSwapChain(Device& device,GLFWwindow& window_);
-    void createImageViews(Device& device);	
-    vk::SurfaceFormatKHR GetSurfaceFormatKHR()
+    void createImageViews(Device& device,TextureMap& texture);	
+    vk::SurfaceFormatKHR* GetSurfaceFormatKHR()
     {
-        return swapChainSurfaceFormat;
+        return &swapChainSurfaceFormat;
     }
-    vk::Extent2D  GetswapChainExtent()
+    vk::Extent2D*  GetswapChainExtent()
     {
-        return swapChainExtent;
+        return &swapChainExtent;
     }
-    std::vector<vk::Image> GetSwapCHainImage()
+    std::vector<vk::Image>* GetSwapCHainImage()
     {
-        return swapChainImages;
+        return &swapChainImages;
     }
     vk::raii::SwapchainKHR* GetSwapChain()
     {

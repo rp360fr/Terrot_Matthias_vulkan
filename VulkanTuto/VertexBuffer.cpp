@@ -1,6 +1,11 @@
 ﻿#include "Header/VertexBuffer.h"
+#include <glm/gtc/matrix_transform.hpp>
 
-void VertexBuffer::CreateVertexBuffer(Device& device,Pipeline& pipeline)
+#include <chrono>
+
+#include "Header/SwapChain.h"
+
+void VertexBuffer::CreateVertexBuffer(Device& device,Pipeline& pipeline,TextureMap& texture)
 {
     vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
@@ -14,10 +19,10 @@ void VertexBuffer::CreateVertexBuffer(Device& device,Pipeline& pipeline)
     std::tie(vertexBuffer, vertexBufferMemory) =
     CreateBuffer(device,bufferSize, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal);
 
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize,device,pipeline);
+    copyBuffer(stagingBuffer, vertexBuffer, bufferSize,device,pipeline,texture);
 }
 
-void VertexBuffer::CreateIndexBuffer(Device& device, Pipeline& pipeline)
+void VertexBuffer::CreateIndexBuffer(Device& device, Pipeline& pipeline,TextureMap& texture)
 {
     vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -31,18 +36,91 @@ void VertexBuffer::CreateIndexBuffer(Device& device, Pipeline& pipeline)
     std::tie(indexBuffer, indexBufferMemory) =
         CreateBuffer(device,bufferSize, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal);
 
-    copyBuffer(stagingBuffer, indexBuffer, bufferSize,device,pipeline);
+    copyBuffer(stagingBuffer, indexBuffer, bufferSize,device,pipeline,texture);
 }
 
-void VertexBuffer::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& dstBuffer, vk::DeviceSize size,Device& device,Pipeline& pipeline)
+void VertexBuffer::CreateUniformBuffer(Device& device, Pipeline& pipeline)
 {
-    vk::CommandBufferAllocateInfo allocInfo{ .commandPool = *pipeline.GetcommandPoll(),.level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
-    vk::raii::CommandBuffer commandCopyBuffer = std::move(device.GetDevice()->allocateCommandBuffers(allocInfo).front());
-    commandCopyBuffer.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-    commandCopyBuffer.copyBuffer(*srcBuffer, *dstBuffer, vk::BufferCopy(0, 0, size));
-    commandCopyBuffer.end();
-    device.GetQueue()->submit(vk::SubmitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer}, nullptr);
-   device.GetQueue()->waitIdle();
+    for (size_t i = 0; i < pipeline.GetMAX_FRAMES_IN_FLIGHT(); i++)
+    {
+        vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+        auto [buffer, bufferMem]  = CreateBuffer(device,
+            bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+        uniformBuffers.emplace_back(std::move(buffer));
+        uniformBuffersMemory.emplace_back(std::move(bufferMem));
+        uniformBuffersMapped.emplace_back( uniformBuffersMemory.back().mapMemory(0, bufferSize));
+    }
+}
+
+void VertexBuffer::updateUniformBuffers(Device& device,SwapChain& swapchain,uint32_t currentImage)
+{
+    static auto startTime = std::chrono::high_resolution_clock::now();
+  
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time       = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    UniformBufferObject ubo{};
+    ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj =
+    glm::perspective(glm::radians(45.0f), static_cast<float>(swapchain.GetswapChainExtent()->width) / static_cast<float>(swapchain.GetswapChainExtent()->height), 0.1f, 10.0f);
+    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+}
+void VertexBuffer::createDescriptorSetLayout(Device& device)
+{
+    std::array<vk::DescriptorSetLayoutBinding, 2> bindings{
+        {{.binding = 0, .descriptorType = vk::DescriptorType::eUniformBuffer, .descriptorCount = 1, .stageFlags = vk::ShaderStageFlagBits::eVertex},
+         {.binding = 1, .descriptorType = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = 1, .stageFlags = vk::ShaderStageFlagBits::eFragment}}};
+
+    vk::DescriptorSetLayoutCreateInfo layoutInfo{.bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data()};
+    descriptorSetLayout = vk::raii::DescriptorSetLayout(*device.GetDevice(), layoutInfo);
+}
+
+void VertexBuffer::createDescriptorPool(Device& device,Pipeline& pipeline)
+{
+    std::array<vk::DescriptorPoolSize, 2> poolSize{{{.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = static_cast<uint32_t>(pipeline.GetMAX_FRAMES_IN_FLIGHT())},
+                                                {.type = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = static_cast<uint32_t>(pipeline.GetMAX_FRAMES_IN_FLIGHT())}}};
+    vk::DescriptorPoolCreateInfo          poolInfo{.flags         = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+                                                   .maxSets       = static_cast<uint32_t>(pipeline.GetMAX_FRAMES_IN_FLIGHT()),
+                                                   .poolSizeCount = static_cast<uint32_t>(poolSize.size()),
+                                                   .pPoolSizes    = poolSize.data()};
+
+    descriptorPool = vk::raii::DescriptorPool(*device.GetDevice(), poolInfo);
+}
+
+void VertexBuffer::createDescriptorSets(Device& device, Pipeline& pipeline,TextureMap& texture)
+{
+    std::vector<vk::DescriptorSetLayout> layouts(pipeline.GetMAX_FRAMES_IN_FLIGHT(), *descriptorSetLayout);
+    vk::DescriptorSetAllocateInfo        allocInfo{.descriptorPool     = descriptorPool,
+                                                   .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+                                                   .pSetLayouts        = layouts.data()};
+
+    descriptorSets = device.GetDevice()->allocateDescriptorSets(allocInfo);
+
+    for (size_t i = 0; i < pipeline.GetMAX_FRAMES_IN_FLIGHT(); i++)
+    {
+        vk::DescriptorBufferInfo bufferInfo{.buffer = uniformBuffers[i], .offset = 0, .range = sizeof(UniformBufferObject)};
+        vk::DescriptorImageInfo  imageInfo{.sampler = *texture.GetTExtureSampler(), .imageView =* texture.GetTextureImageView(), .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal};
+        std::array<vk::WriteDescriptorSet, 2> descriptorWrites{{{.dstSet          = descriptorSets[i],
+                                                          .dstBinding      = 0,
+                                                          .dstArrayElement = 0,
+                                                          .descriptorCount = 1,
+                                                          .descriptorType  = vk::DescriptorType::eUniformBuffer,
+                                                          .pBufferInfo     = &bufferInfo},
+                                                         {.dstSet          = descriptorSets[i],
+                                                          .dstBinding      = 1,
+                                                          .dstArrayElement = 0,
+                                                          .descriptorCount = 1,
+                                                          .descriptorType  = vk::DescriptorType::eCombinedImageSampler,
+                                                          .pImageInfo      = &imageInfo}}};
+        device.GetDevice()->updateDescriptorSets(descriptorWrites, {});
+    }
+}
+
+void VertexBuffer::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& dstBuffer, vk::DeviceSize size,Device& device,Pipeline& pipeline,TextureMap& texture)
+{
+    vk::raii::CommandBuffer commandCopyBuffer = texture.beginSingleTimeCommands(device,pipeline);
+    commandCopyBuffer.copyBuffer(*srcBuffer, *dstBuffer, vk::BufferCopy{.size = size});
+   texture. endSingleTimeCommands(std::move(commandCopyBuffer),device);
 }
 
 std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> VertexBuffer::CreateBuffer(Device& device,vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties)
@@ -70,4 +148,35 @@ uint32_t VertexBuffer::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFla
     throw std::runtime_error("failed to find suitable memory type!");
     
     
+}
+
+void VertexBuffer::createDepthResources(SwapChain& swapChain,TextureMap& texture,Device& device,VertexBuffer& vertexBuffer)
+{
+    vk::Format depthFormat = findDepthFormat(device);
+
+    std::tie(depthImage, depthImageMemory) = texture.createImage(device,vertexBuffer,swapChain.GetswapChainExtent()->width, swapChain.GetswapChainExtent()->height, depthFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal);
+    depthImageView                         = texture.createImageView(device,depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth);
+}
+
+vk::Format VertexBuffer::findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling,
+    vk::FormatFeatureFlags features, Device& device)
+{
+    for (const auto format : candidates)
+    {
+        vk::FormatProperties props =device.GetphysiacalDevice()->getFormatProperties(format);
+        if (((tiling == vk::ImageTiling::eLinear) && ((props.linearTilingFeatures & features) == features)) ||
+            ((tiling == vk::ImageTiling::eOptimal) && ((props.optimalTilingFeatures & features) == features)))
+        {
+            return format;
+        }
+    }
+
+    throw std::runtime_error("failed to find supported format!");
+}
+
+vk::Format VertexBuffer::findDepthFormat(Device& device)
+{
+    return findSupportedFormat({vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
+                                   vk::ImageTiling::eOptimal,
+                                   vk::FormatFeatureFlagBits::eDepthStencilAttachment,device);
 }

@@ -1,64 +1,82 @@
 ﻿//#define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
 #include "Header/Pipeline.h"
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLFW_INCLUDE_VULKAN
 
+#include <glm/gtc/matrix_transform.hpp>
 #include "Header/Device.h"
 #include "Header/SwapChain.h"
 
 
 void Pipeline::recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain,VertexBuffer& vertexbuffer)
 {
+	auto& images_ = *swapchain.GetSwapCHainImage();
 	auto &commandBuffer = commandBuffers[frameIndex];
 	commandBuffer.begin({});
-	transition_image_layout(    imageIndex,
+	transition_image_layout( images_[imageIndex]  ,
 	vk::ImageLayout::eUndefined,
 	vk::ImageLayout::eColorAttachmentOptimal,
 	{},                                                        
 	vk::AccessFlagBits2::eColorAttachmentWrite,                
 	vk::PipelineStageFlagBits2::eColorAttachmentOutput,        
-	vk::PipelineStageFlagBits2::eColorAttachmentOutput,swapchain);
+	vk::PipelineStageFlagBits2::eColorAttachmentOutput,swapchain,vk::ImageAspectFlagBits::eColor);
 	
-	vk::ClearValue clearColor = vk::ClearColorValue(0.0f,0.0f,0.0f,1.0f);
-	vk::RenderingAttachmentInfo attachmentInfo = {
+	vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
+	vk::ClearValue clearDepth = vk::ClearDepthStencilValue(1.0f, 0);
+	vk::RenderingAttachmentInfo depthAttachmentInfo = {
+		.imageView   = *vertexbuffer.GetdepthImageView(),
+		.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
+		.loadOp      = vk::AttachmentLoadOp::eClear,
+		.storeOp     = vk::AttachmentStoreOp::eDontCare,
+		.clearValue  = clearDepth};
+	vk::RenderingAttachmentInfo colorAttachmentInfo = {
 		.imageView = swapchain.swapChainImageViews[imageIndex],
 		.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
 		.loadOp =  vk::AttachmentLoadOp::eClear,
 		.storeOp = vk::AttachmentStoreOp::eStore,
 		.clearValue = clearColor,
+		
 	};
 	vk::RenderingInfo renderingInfo = {
-		.renderArea           = {.offset = {0, 0}, .extent = swapchain.GetswapChainExtent()},
+		.renderArea           = {.offset = {0, 0}, .extent = *swapchain.GetswapChainExtent()},
 		.layerCount           = 1,
 		.colorAttachmentCount = 1,
-		.pColorAttachments    = &attachmentInfo
-	};
+		.pColorAttachments    = &colorAttachmentInfo,
+		.pDepthAttachment     = &depthAttachmentInfo};
 	commandBuffer.beginRendering(renderingInfo);
 	commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
+	commandBuffer.setViewport(0, vk::Viewport(0.0f, static_cast<float>(swapchain.GetswapChainExtent()->height), static_cast<float>(swapchain.GetswapChainExtent()->width),-static_cast<float>(swapchain.GetswapChainExtent()->height), 0.0f, 1.0f));
+	commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), *swapchain.GetswapChainExtent()));
 	commandBuffer.bindVertexBuffers(0,**vertexbuffer.GetvertexBuffer(),{0});
 	commandBuffer.bindIndexBuffer(*vertexbuffer.GetindixBuffer(), 0, vk::IndexTypeValue<decltype(vertexbuffer.indices)::value_type>::value);
-	commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapchain.GetswapChainExtent().width), static_cast<float>(swapchain.GetswapChainExtent().height), 0.0f, 1.0f));
-	commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapchain.GetswapChainExtent()));
+	
+	
+	commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout,0,*vertexbuffer.descriptorSets[frameIndex],nullptr);
 	commandBuffer.drawIndexed(static_cast<uint32_t>(vertexbuffer.indices.size()), 1, 0, 0, 0);
 	commandBuffer.endRendering();
 	// After rendering, transition the swapchain image to vk::ImageLayout::ePresentSrcKHR
 	transition_image_layout(
-		imageIndex,
+		*vertexbuffer.GetdepthImage(),
 		vk::ImageLayout::eColorAttachmentOptimal,
 		vk::ImageLayout::ePresentSrcKHR,
 		vk::AccessFlagBits2::eColorAttachmentWrite,             // srcAccessMask
 		{},                                                     // dstAccessMask
 		vk::PipelineStageFlagBits2::eColorAttachmentOutput,     // srcStage
 		vk::PipelineStageFlagBits2::eBottomOfPipe,
-		swapchain
+		swapchain,vk::ImageAspectFlagBits::eColor
 	
 	);
+	
 	commandBuffer.end();
 	
 }
 
-void Pipeline::transition_image_layout(uint32_t imageIndex, vk::ImageLayout old_layout, vk::ImageLayout new_layout,
+void Pipeline::transition_image_layout(vk::Image image, vk::ImageLayout old_layout, vk::ImageLayout new_layout,
 	vk::AccessFlags2 src_access_mask, vk::AccessFlags2 dst_access_mask, vk::PipelineStageFlags2 src_stage_mask,
-	vk::PipelineStageFlags2 dst_stage_mask,SwapChain& swapchain)
+	
+	vk::PipelineStageFlags2 dst_stage_mask,SwapChain& swapchain,vk::ImageAspectFlags    image_aspect_flags)
 {
+	
 	vk::ImageMemoryBarrier2 barrier = {
 		.srcStageMask  = src_stage_mask,
 		.srcAccessMask = src_access_mask,
@@ -68,13 +86,14 @@ void Pipeline::transition_image_layout(uint32_t imageIndex, vk::ImageLayout old_
 		.newLayout =  new_layout,
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = swapchain.GetSwapCHainImage()[imageIndex],
-		.subresourceRange = { .aspectMask     = vk::ImageAspectFlagBits::eColor,
-				   .baseMipLevel   = 0,
-				   .levelCount     = 1,
-				   .baseArrayLayer = 0,
-				   .layerCount     = 1}
-	};
+		.image = image,
+		.subresourceRange    = {
+			.aspectMask     = image_aspect_flags,
+			.baseMipLevel   = 0,
+			.levelCount     = 1,
+			.baseArrayLayer = 0,
+			.layerCount     = 1}};
+	
 		vk::DependencyInfo dependency_info = {
 			.dependencyFlags = {},
 			.imageMemoryBarrierCount = 1,
@@ -133,11 +152,19 @@ void Pipeline::createGraphicsPipeline(Device& device,SwapChain& swapchain,Vertex
 		.rasterizerDiscardEnable =  vk::False,
 		.polygonMode = vk::PolygonMode::eFill,
 		.cullMode = vk::CullModeFlagBits::eBack,
-		.frontFace = vk::FrontFace::eClockwise,
+		.frontFace = vk::FrontFace::eCounterClockwise,
 		.depthBiasEnable = vk::False,
 		.lineWidth = 1.0f,
 	};
 	vk::PipelineMultisampleStateCreateInfo multisampling{.rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = vk::False};
+	vk::PipelineDepthStencilStateCreateInfo depthStencil{
+		.depthTestEnable       = vk::True,
+		.depthWriteEnable      = vk::True,
+		.depthCompareOp        = vk::CompareOp::eLess,
+		.depthBoundsTestEnable = vk::False,
+		.stencilTestEnable     = vk::False};
+	
+	
 	
 	vk::PipelineColorBlendAttachmentState colorBlendAttachment{
 		.blendEnable = vk::False,
@@ -148,12 +175,15 @@ void Pipeline::createGraphicsPipeline(Device& device,SwapChain& swapchain,Vertex
 	
 	std::vector<vk::DynamicState>      dynamicStates = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
 	vk::PipelineDynamicStateCreateInfo dynamicState{.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data()};
-	vk::PipelineLayoutCreateInfo pipelineLayoutInfo{.setLayoutCount = 0, .pushConstantRangeCount = 0};
+	vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1, .pSetLayouts = &**vertexbuffer.GetdescriptorSetLayout(), .pushConstantRangeCount = 0 };
+
+
 
 
 	pipelineLayout = vk::raii::PipelineLayout(*device.GetDevice(), pipelineLayoutInfo);
 	
-	const vk::Format colorFormat = swapchain.GetSurfaceFormatKHR().format;
+	const vk::Format colorFormat = swapchain.GetSurfaceFormatKHR()->format;
+	vk::Format depthFormat = vertexbuffer.findDepthFormat(device);
 	vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
 		{.stageCount          = 2,
 		 .pStages             = shaderStages,
@@ -162,11 +192,12 @@ void Pipeline::createGraphicsPipeline(Device& device,SwapChain& swapchain,Vertex
 		 .pViewportState      = &viewportState,
 		 .pRasterizationState = &rasterizer,
 		 .pMultisampleState   = &multisampling,
+			.pDepthStencilState  = &depthStencil,
 		 .pColorBlendState    = &colorBlending,
 		 .pDynamicState       = &dynamicState,
 		 .layout              = pipelineLayout,
 		 .renderPass          = nullptr},
-		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorFormat}};
+{.colorAttachmentCount = 1, .pColorAttachmentFormats = &swapchain.GetSurfaceFormatKHR()->format, .depthAttachmentFormat = depthFormat}};
 
 	graphicsPipeline = vk::raii::Pipeline(*device.GetDevice(), nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
 	
@@ -193,7 +224,7 @@ void Pipeline::createSyncObjects(Device& device,SwapChain& swapchain)
 	
 	assert(presentCompleteSemaphores.empty() && renderFinishedSemaphores.empty() && inFlightFences.empty());
 
-	for (size_t i = 0; i < swapchain.GetSwapCHainImage().size(); i++)
+	for (size_t i = 0; i < swapchain.GetSwapCHainImage()->size(); i++)
 	{
 		renderFinishedSemaphores.emplace_back(*device.GetDevice(), vk::SemaphoreCreateInfo());
 	}
@@ -205,7 +236,7 @@ void Pipeline::createSyncObjects(Device& device,SwapChain& swapchain)
 	}
 }
 
-void Pipeline::drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window,VertexBuffer& vertexBuffer)
+void Pipeline::drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window,VertexBuffer& vertexBuffer,TextureMap& texture)
 {
 	auto fenceResult = device.GetDevice()->waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
 	if (fenceResult != vk::Result::eSuccess)
@@ -218,7 +249,7 @@ void Pipeline::drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window,
 	if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || framebufferResized)
 	{
 		framebufferResized = false;
-		swapchain.recreateSwapChai(device,window);
+		swapchain.recreateSwapChai(device,window,texture, vertexBuffer,swapchain);
 		return;
 	}
 	if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
@@ -226,10 +257,11 @@ void Pipeline::drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window,
 		assert(result == vk::Result::eTimeout || result == vk::Result::eNotReady);
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
-
+	vertexBuffer.updateUniformBuffers(device ,swapchain,frameIndex);
 	// Only reset the fence if we are submitting work
 	device.GetDevice()->resetFences(*inFlightFences[frameIndex]);
 	commandBuffers[frameIndex].reset();
+	
 	recordCommandBuffer(imageIndex,swapchain,vertexBuffer);
 
 	vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -253,7 +285,7 @@ void Pipeline::drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window,
 	if ((result == vk::Result::eSuboptimalKHR) || (result == vk::Result::eErrorOutOfDateKHR) || framebufferResized)
 	{
 		framebufferResized = false;
-		swapchain.recreateSwapChai(device,window);
+		swapchain.recreateSwapChai(device,window,texture,vertexBuffer,swapchain);
 	}
 	else
 	{

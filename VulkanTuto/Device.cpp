@@ -34,16 +34,11 @@ void Device::CreateLogicalDevice(Instance& instance)
     }
 
     // query for Vulkan 1.3 features
-    vk::StructureChain<vk::PhysicalDeviceFeatures2,
-        vk::PhysicalDeviceVulkan11Features,
-        vk::PhysicalDeviceVulkan13Features,
-        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
-        featureChain = {
-        {},                                   
-        {.shaderDrawParameters = true},       
-        {.dynamicRendering = true},           
-        {.extendedDynamicState = true}        
-        };
+    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> featureChain = {
+        {.features = {.samplerAnisotropy = true } },            
+        {.synchronization2 = true, .dynamicRendering = true },  
+        {.extendedDynamicState = true }                         
+    };
     auto requiredExtensions = instance.GetrequiredDeviceExtension();
 
     // create a Device

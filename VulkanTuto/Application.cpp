@@ -12,7 +12,7 @@ void Application::Run()
     while (!glfwWindowShouldClose(window)) {
 
         glfwPollEvents();
-        pipeline.drawFrame(device,swapChain,*window,vertexBuffer);
+        pipeline.drawFrame(device,swapChain,*window,vertexBuffer,texture);
     }
 }
 
@@ -53,8 +53,8 @@ void Application::InitVulkan()
 {
     renderer.InstanceInit(instance);
     renderer.DeviceInit(device,instance,*window);
-    renderer.swapChainInit(swapChain,device,*window);
-    renderer.PipelineInit(pipeline,swapChain,device,vertexBuffer);
+    renderer.swapChainInit(swapChain,device,*window,texture);
+    renderer.PipelineInit(pipeline,swapChain,device,vertexBuffer,texture);
 
     
 }

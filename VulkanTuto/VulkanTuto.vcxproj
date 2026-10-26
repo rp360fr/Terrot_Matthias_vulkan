@@ -159,6 +159,7 @@
     </ClCompile>
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SwapChain.cpp" />
+    <ClCompile Include="TextureMap.cpp" />
     <ClCompile Include="VertexBuffer.cpp" />
     <ClCompile Include="VulkanTuto.cpp" />
   </ItemGroup>
@@ -170,12 +171,15 @@
     <ClInclude Include="Header\Pipeline.h" />
     <ClInclude Include="Header\Renderer.h" />
     <ClInclude Include="Header\SwapChain.h" />
+    <ClInclude Include="Header\TextureMap.h" />
     <ClInclude Include="Header\VertexBuffer.h" />
+    <ClInclude Include="image\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="shader\CMakeLists.txt" />
     <Content Include="shader\Compile.bat" />
     <Content Include="shader\shader.slang" />
+    <Content Include="Texture\Texture.jpg" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

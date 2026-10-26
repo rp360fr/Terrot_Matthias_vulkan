@@ -10,6 +10,7 @@
 class Device;
 class SwapChain;
 class VertexBuffer;
+class TextureMap;
 class Pipeline
 {
 public:
@@ -18,7 +19,7 @@ public:
     void createCommandPool(Device& device,SwapChain& swapchain);
     void createCommandBuffers(Device& device);
     void createSyncObjects(Device& device,SwapChain& swapchain);
-    void drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window,VertexBuffer& vertexBuffer);
+    void drawFrame(Device& device,SwapChain& swapchain,GLFWwindow& window,VertexBuffer& vertexBuffer,TextureMap& texture);
     static std::vector<char> readFile(const std::string& filename);
 	bool* GetFramebufferResized()
 	{
@@ -28,7 +29,7 @@ public:
 	
 	vk::raii::CommandPool* GetcommandPoll(){
 		return &commandPool;}
-	
+	int GetMAX_FRAMES_IN_FLIGHT(){return MAX_FRAMES_IN_FLIGHT;}
 private:
     
     std::vector<vk::raii::CommandBuffer> commandBuffers;
@@ -50,14 +51,14 @@ private:
     vk::raii::Pipeline       graphicsPipeline = nullptr;
     GLFWwindow* window = nullptr;
     void recordCommandBuffer(uint32_t imageIndex,SwapChain& swapchain,VertexBuffer& vertexbuffer);
-    void transition_image_layout( uint32_t                imageIndex,
+    void transition_image_layout( vk::Image image,
         vk::ImageLayout         old_layout,
         vk::ImageLayout         new_layout,
         vk::AccessFlags2        src_access_mask,
         vk::AccessFlags2        dst_access_mask,
         vk::PipelineStageFlags2 src_stage_mask,
         vk::PipelineStageFlags2 dst_stage_mask,
-        SwapChain& swapchain);
+        SwapChain& swapchain,vk::ImageAspectFlags    image_aspect_flags);
 	
 	std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
 	std::vector<vk::raii::Semaphore> renderFinishedSemaphores;

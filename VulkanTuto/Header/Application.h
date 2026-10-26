@@ -9,6 +9,7 @@
 #include "SwapChain.h"
 #include "Pipeline.h"
 #include "VertexBuffer.h"
+#include "TextureMap.h"
 #include <memory>
 class Renderer;
 class Instance;
@@ -16,6 +17,7 @@ class Device;
 class SwapChain;
 class Pipeline;
 class VertexBuffer;
+class TextureMap;
 
 class Application
 {
@@ -41,6 +43,7 @@ Application()
 	SwapChain swapChain;
 	Pipeline pipeline;
 	VertexBuffer vertexBuffer;
+	TextureMap texture;
 	
 	
 	void Init();

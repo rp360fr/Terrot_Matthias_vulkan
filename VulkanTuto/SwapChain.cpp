@@ -6,7 +6,7 @@ void SwapChain::cleanupSwapChain()
     swapChain_ = nullptr;
 }
 
-void SwapChain::recreateSwapChai(Device& device,GLFWwindow& window)
+void SwapChain::recreateSwapChai(Device& device,GLFWwindow& window,TextureMap& texture,VertexBuffer& vertex,SwapChain& swapchain)
 {
     int width = 0, height = 0;
     glfwGetFramebufferSize(&window, &width, &height);
@@ -20,7 +20,8 @@ void SwapChain::recreateSwapChai(Device& device,GLFWwindow& window)
     device.GetDevice()->waitIdle();
     cleanupSwapChain();
     createSwapChain(device,window);
-    createImageViews(device);
+    createImageViews(device,texture);
+    vertex.createDepthResources(swapchain,texture,device,vertex);
 }
 
 void SwapChain::createSwapChain(Device& device,GLFWwindow& window_)
@@ -53,20 +54,15 @@ void SwapChain::createSwapChain(Device& device,GLFWwindow& window_)
     swapChainImages = swapChain_.getImages();
 }
 
-void SwapChain::createImageViews(Device& device)
+void SwapChain::createImageViews(Device& device,TextureMap& texture)
 {
     
     assert(swapChainImageViews.empty());
-    vk::ImageViewCreateInfo image_view_create_info {
-        .viewType = vk::ImageViewType::e2D,
-        .format = swapChainSurfaceFormat.format,
-        .subresourceRange ={ vk::ImageAspectFlagBits::eColor,0,1,0,1}
-    };
-	
-    for (auto &image : swapChainImages)
+
+    swapChainImageViews.reserve(swapChainImages.size());
+    for ( auto &image: swapChainImages )
     {
-        image_view_create_info.image = image;
-        swapChainImageViews.emplace_back(*device.GetDevice(),image_view_create_info);
+        swapChainImageViews.emplace_back(texture.createImageView(device,image, swapChainSurfaceFormat.format,vk::ImageAspectFlagBits::eColor));
     }
 }
 
